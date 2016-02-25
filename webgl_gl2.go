@@ -7,11 +7,11 @@
 package webgl
 
 import (
+	"fmt"
 	"image"
 	"log"
 	"reflect"
 
-	"fmt"
 	"github.com/go-gl/gl/v2.1/gl"
 )
 
@@ -314,6 +314,7 @@ type Context struct {
 	VERTEX_ATTRIB_ARRAY_TYPE                     int
 	VERTEX_SHADER                                int
 	VIEWPORT                                     int
+	WRITE_ONLY                                   int
 	ZERO                                         int
 }
 
@@ -606,6 +607,7 @@ func NewContext() *Context {
 		VERTEX_ATTRIB_ARRAY_TYPE:           gl.VERTEX_ATTRIB_ARRAY_TYPE,
 		VERTEX_SHADER:                      gl.VERTEX_SHADER,
 		VIEWPORT:                           gl.VIEWPORT,
+		WRITE_ONLY:                         gl.WRITE_ONLY,
 		ZERO:                               gl.ZERO,
 	}
 }
@@ -616,8 +618,9 @@ func (c *Context) CreateShader(typ int) *Shader {
 }
 
 func (c *Context) ShaderSource(shader *Shader, source string) {
-	glsource := gl.Str(source + "\x00")
-	gl.ShaderSource(shader.uint32, 1, &glsource, nil)
+	ptr, free := gl.Strs(source + "\x00")
+	defer free()
+	gl.ShaderSource(shader.uint32, 1, ptr, nil)
 }
 
 func (c *Context) CompileShader(shader *Shader) {
@@ -665,7 +668,6 @@ func (c *Context) TexImage2D(target, level, internalFormat, format, kind int, da
 	if data == nil {
 		pix = nil
 	} else {
-
 		switch img := data.(type) {
 		case *image.NRGBA:
 			width = img.Bounds().Dx()
@@ -683,11 +685,15 @@ func (c *Context) TexImage2D(target, level, internalFormat, format, kind int, da
 }
 
 func (c *Context) GetAttribLocation(program *Program, name string) int {
-	return int(gl.GetAttribLocation(program.uint32, gl.Str(name+"\x00")))
+	strptr, free := gl.Strs(name + "\x00")
+	defer free()
+	return int(gl.GetAttribLocation(program.uint32, *strptr))
 }
 
 func (c *Context) GetUniformLocation(program *Program, name string) *UniformLocation {
-	return &UniformLocation{gl.GetUniformLocation(program.uint32, gl.Str(name+"\x00"))}
+	strptr, free := gl.Strs(name + "\x00")
+	defer free()
+	return &UniformLocation{gl.GetUniformLocation(program.uint32, *strptr)}
 }
 
 func (c *Context) GetError() int {
@@ -771,7 +777,6 @@ func (c *Context) DrawArrays(mode, first, count int) {
 }
 
 func (c *Context) DrawElements(mode, count, typ, offset int) {
-
 	gl.DrawElements(uint32(mode), int32(count), uint32(typ), gl.PtrOffset(offset))
 }
 
@@ -785,28 +790,4 @@ func (c *Context) Viewport(x, y, width, height int) {
 
 func (c *Context) Clear(flags int) {
 	gl.Clear(uint32(flags))
-}
-
-func (c *Context) Translatef(x, y, z float32) {
-	gl.Translatef(x, y, z)
-}
-
-func (c *Context) Rotatef(angle, x, y, z float32) {
-	gl.Rotatef(angle, x, y, z)
-}
-
-func (c *Context) MatrixMode(mode uint32) {
-	gl.MatrixMode(mode)
-}
-
-func (c *Context) LoadIdentity() {
-	gl.LoadIdentity()
-}
-
-func (c *Context) PushMatrix() {
-	gl.PushMatrix()
-}
-
-func (c *Context) Frustum(left, right, bottom, top, zNear, zFar float64) {
-	gl.Frustum(left, right, bottom, top, zNear, zFar)
 }
